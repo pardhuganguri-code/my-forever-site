@@ -18,30 +18,74 @@ export const Route = createFileRoute("/")({
 const HER = "Varshu";
 const ME = "Pardhu";
 
+// "Mudhal Nee Mudivum Nee" — title track (Sid Sriram). Swap VIDEO_ID if needed.
+const SONG_VIDEO_ID = "Ho7B5ti2POg";
+
+declare global {
+  interface Window {
+    YT?: any;
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
 function Proposal() {
   const [entered, setEntered] = useState(false);
   const [answered, setAnswered] = useState<null | "yes">(null);
   const [noPos, setNoPos] = useState({ x: 0, y: 0 });
   const [musicOn, setMusicOn] = useState(false);
   const [hearts, setHearts] = useState<{ id: number; x: number; y: number }[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playerRef = useRef<any>(null);
+  const playerReady = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.2], ["0%", "30%"]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
 
+  // Load YouTube IFrame API + create hidden player
   useEffect(() => {
-    if (musicOn && audioRef.current) {
-      audioRef.current.volume = 0.35;
-      audioRef.current.play().catch(() => {});
-    } else if (audioRef.current) {
-      audioRef.current.pause();
+    const init = () => {
+      if (!window.YT || !window.YT.Player) return;
+      playerRef.current = new window.YT.Player("yt-bg-player", {
+        videoId: SONG_VIDEO_ID,
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          disablekb: 1,
+          modestbranding: 1,
+          playsinline: 1,
+          loop: 1,
+          playlist: SONG_VIDEO_ID,
+        },
+        events: {
+          onReady: () => {
+            playerReady.current = true;
+            playerRef.current?.setVolume(45);
+          },
+        },
+      });
+    };
+    if (window.YT && window.YT.Player) {
+      init();
+    } else {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+      window.onYouTubeIframeAPIReady = init;
     }
+  }, []);
+
+  useEffect(() => {
+    if (!playerReady.current || !playerRef.current) return;
+    try {
+      if (musicOn) playerRef.current.playVideo();
+      else playerRef.current.pauseVideo();
+    } catch {}
   }, [musicOn]);
 
   const enter = () => {
     setEntered(true);
-    setMusicOn(true);
+    // small delay so the player is ready on first click
+    setTimeout(() => setMusicOn(true), 200);
   };
 
   const dodge = () => {
@@ -60,8 +104,15 @@ function Proposal() {
 
   return (
     <div ref={containerRef} onClick={burstHeart} className="relative min-h-screen overflow-x-hidden">
-      {/* Background music — instrumental royalty-free */}
-      <audio ref={audioRef} loop src="https://cdn.pixabay.com/audio/2022/10/30/audio_347111d654.mp3" />
+      {/* Hidden YouTube background player — "Mudhal Nee Mudivum Nee" */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed -z-10 opacity-0"
+        style={{ width: 1, height: 1, left: -9999, top: -9999 }}
+      >
+        <div id="yt-bg-player" />
+      </div>
+
 
       {/* Ambient starfield */}
       <StarField />
